@@ -24,36 +24,114 @@
 -- http://ricilake.blogspot.jp/2007/10/iterating-bits-in-lua.html
 local bitwise= {}
 
-function bitwise.bit(x)
-    return 2 ^ (x - 1)
+-- target: 32bit unsigned integer
+
+-- bit32.btest
+function bitwise.btest(...)
+    return bitwise.band(...) ~= 0x00000000
 end
 
-function bitwise.hasbit(x, y)
-    return x % (y + y) >= y
-end
-
+-- bit32.bnot
 function bitwise.bnot(x)
     return (-1 - x) % 2 ^ 32
 end
 
+-- bit32.band
 function bitwise.band(...)
-    local args= {...}
-    local z= 0xffffffff
-
-    for i, arg in ipairs(args) do
-        z= bitwise.band2(z, arg)
+    local x= 0xffffffff
+    for _, y in ipairs({...}) do
+        x= bitwise._band2(x, y)
     end
-
-    return z
+    return x
 end
 
-function bitwise.band2(x, y)
+-- bit32.bor
+function bitwise.bor(...)
+    local x= 0x00000000
+    for _, y in ipairs({...}) do
+        x= bitwise._bor2(x, y)
+    end
+    return x
+end
+
+-- bit32.bxor
+function bitwise.bxor(...)
+    local x= 0x00000000
+    for _, y in ipairs({...}) do
+        x= bitwise._bxor2(x, y)
+    end
+    return x
+end
+
+-- bit32.arshift
+function bitwise.arshift(x, disp)
+end
+
+-- bit32.lshift
+function bitwise.lshift(x, disp)
+    if disp > 0 then
+        return (x * 2 ^ disp) % 2 ^ 32
+    elseif disp < 0 then
+        return bitwise.rshift(x, -disp)
+    else -- disp == 0
+        return x
+    end
+end
+
+-- bit32.rshift
+function bitwise.rshift(x, disp)
+    if disp > 0 then
+        return math.floor(x % 2 ^ 32 / 2 ^ disp)
+    elseif disp < 0 then
+        return bitwise.lshift(x, disp)
+    else -- disp == 0
+        return x
+    end
+end
+
+-- bit32.lrotate
+function bitwise.lrotate(x, disp)
+    error('Sorry, unimplemented yet.')
+end
+
+-- bit32.rrotate
+function bitwise.rrotate(x, disp)
+    error('Sorry, unimplemented yet.')
+end
+
+-- bit32.extract
+-- <- higher bit - lower bit ->
+-- 31 30 .................. 1 0
+function bitwise.extract(n, field, width)
+    width= width or 1
+
+    local x= 0x00000000
+    local y
+    for i= field, field + width - 1 do
+        if bitwise._hasbit(n, bitwise._bit(i + 1)) then
+            x= bitwise.bor(x, bitwise.lshift(0x00000001, i - field))
+        end
+    end
+    return x
+end
+
+-- bit32.replace
+function bitwise.replace(n, v, field, width)
+    error('Sorry, unimplemented yet.')
+end
+
+function bitwise._bxor2(x, y)
+    -- x ^ y = (x & ~y) | (~x & y)
+    return bitwise.bor(bitwise.band(x, bitwise.bnot(y)), bitwise.band(bitwise.bnot(x), y))
+end
+
+function bitwise._band2(x, y)
     local p= 1
     local z= 0
     local limit= x > y and x or y
 
     while p <= limit do
-        if bitwise.hasbit(x, p) and bitwise.hasbit(y, p) then
+        if bitwise._hasbit(x, p) and bitwise._hasbit(y, p) then
             z= z + p
         end
         p= p + p
@@ -62,18 +140,7 @@ function bitwise.band2(x, y)
     return z
 end
 
-function bitwise.bor(...)
-    local args= {...}
-    local z= 0x00000000
-
-    for i, arg in ipairs(args) do
-        z= bitwise.bor2(z, arg)
-    end
-
-    return z
-end
-
-function bitwise.bor2(x, y)
+function bitwise._bor2(x, y)
     local p= 1
 
     while p < x do
@@ -101,14 +168,12 @@ function bitwise.bor2(x, y)
     return z
 end
 
-function bitwise.lshift(x, disp)
-    if disp == 0 then
-        return x
-    end
+function bitwise._bit(x)
+    return 2 ^ (x - 1)
+end
 
-    assert(disp > 0, 'cannot emulate 0 or negative disp')
-
-    return x * 2 ^ disp % 2 ^ 32
+function bitwise._hasbit(x, y)
+    return x % (y + y) >= y
 end
 
 return bitwise
